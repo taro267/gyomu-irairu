@@ -1,0 +1,569 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>業務依頼ツール</title>
+<!--
+=============================================================
+  FRe:x Design inc. 業務依頼ツール — Firebase リアルタイム同期版
+=============================================================
+
+【セットアップ手順】
+
+1. https://console.firebase.google.com/ にアクセス
+2. 「プロジェクトを追加」→ 任意の名前で作成（GoogleアナリティクスはオフでもOK）
+3. 左メニュー「構築」→「Realtime Database」→「データベースを作成」
+   - リージョン: asia-southeast1（シンガポール）推奨
+   - セキュリティルール: 「テストモードで開始」を選択
+4. 左メニュー「プロジェクトの概要」の歯車 → 「プロジェクトの設定」
+5. 下にスクロール →「マイアプリ」→「</>」（ウェブ）をクリック
+6. アプリ名を入力して登録 → 表示されるfirebaseConfigをコピー
+7. 下の FIREBASE_CONFIG の中身を書き換えて保存
+8. GitHub Pages や任意のWebサーバーに置いて、URLを全員に共有
+
+【セキュリティルール（本番用）】
+ Realtime Database の「ルール」タブで以下に変更:
+ {
+   "rules": {
+     ".read": true,
+     ".write": true
+   }
+ }
+
+=============================================================
+-->
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f5f0e8;--card:#fff;--bd:#e5ddd0;--head:#f0ebe2;--inp:#f7f3ee;--muted:#9e8f7e;--acc:#4F6EF7;--red:#C53030;--blue:#1A56DB;--amb:#B45309;--grn:#276749;}
+body{font-family:sans-serif;font-size:14px;background:var(--bg);color:#222}
+.wrap{max-width:940px;margin:0 auto;padding:14px}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:11px 18px;background:var(--card);border:1px solid var(--bd);border-radius:14px;margin-bottom:12px}
+.hdr-logo{font-size:15px;font-weight:700;color:var(--acc)}
+.hdr-sep{margin:0 10px;color:var(--bd);font-size:18px}
+.hdr-name{font-size:14px;color:var(--muted)}
+.sync-row{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;flex-shrink:0}
+.dot.ok{background:var(--grn)}.dot.busy{background:var(--amb);animation:blink 1s infinite}.dot.err{background:var(--red)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+nav{display:flex;border-bottom:1.5px solid var(--bd);margin-bottom:14px}
+.ntab{padding:9px 20px;border:none;background:none;cursor:pointer;font-size:14px;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1.5px}
+.ntab.on{color:var(--acc);border-bottom-color:var(--acc);font-weight:500}
+.sc{background:var(--card);border:1px solid var(--bd);border-radius:14px;margin-bottom:12px;overflow:hidden}
+.sc-hd{display:flex;align-items:center;gap:9px;padding:11px 16px;background:var(--head);border-bottom:1px solid var(--bd)}
+.sc-hd .bar{width:4px;height:15px;border-radius:3px;flex-shrink:0}
+.sc-hd .ttl{font-size:13px;font-weight:500}
+.sc-bd{padding:16px 18px}
+.f{margin-bottom:14px}.f:last-child{margin-bottom:0}
+.lb{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:4px}
+input,select,textarea{width:100%;padding:8px 11px;border:1px solid var(--bd);border-radius:9px;font-size:14px;background:var(--inp);color:#222}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc)}
+textarea{resize:vertical}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+button{cursor:pointer;font-size:13px;padding:7px 13px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:#222}
+button:hover{background:var(--head)}
+.b-acc{background:var(--acc);color:#fff;border-color:var(--acc)}.b-acc:hover{background:#3a56e0;color:#fff}
+.b-grn{background:#38A169;color:#fff;border-color:#38A169}.b-grn:hover{background:#2f855a;color:#fff}
+.b-red{color:var(--red);border-color:#feb2b2}
+.b-sm{padding:4px 9px;font-size:12px}
+.b-muted{padding:4px 9px;font-size:12px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:5px 13px;border-radius:20px;border:1px solid var(--bd);cursor:pointer;font-size:13px;background:var(--inp);color:var(--muted);user-select:none}
+.chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.bdg{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.bdg-new{background:#ebf4ff;color:#1a56db}.bdg-wip{background:#fff3e0;color:#b45309}.bdg-done{background:#f0fff4;color:#276749}
+.bdg-hi{background:#fff5f5;color:#c53030}.bdg-mid{background:#fffaf0;color:#975a16}.bdg-lo{background:#f0fff4;color:#276749}
+.rc{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:13px 15px;margin-bottom:7px;cursor:pointer}
+.rc:hover{box-shadow:0 2px 8px rgba(0,0,0,.07)}.rc.faded{opacity:.4}
+.rc-inner{display:flex;gap:11px;align-items:stretch}
+.rc-bar{width:4px;border-radius:3px;flex-shrink:0}
+.rc-body{flex:1;min-width:0}.rc-title{font-weight:500;font-size:15px;margin-bottom:4px}
+.rc-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.rc-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.stats{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.spill{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--card);border:1px solid var(--bd);border-radius:20px;font-size:13px;color:var(--muted)}
+.spill strong{font-size:14px;font-weight:600}
+.fbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:11px}
+.dz{border:1.5px dashed var(--bd);border-radius:10px;padding:18px;text-align:center;cursor:pointer;color:var(--muted);font-size:13px;line-height:1.9;background:var(--inp)}
+.dz:hover,.dz.ov{border-color:var(--acc)}
+.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:7px;margin-top:8px}
+.ithumb{position:relative;padding-top:72%;background:var(--head);border-radius:7px;overflow:hidden;border:1px solid var(--bd)}
+.ithumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.xbtn{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.fi{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--inp);border-radius:9px;margin-top:5px;font-size:13px;border:1px solid var(--bd)}
+.fn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow{display:flex;gap:6px;align-items:center;margin-top:7px}
+.oprev{font-size:12px;color:var(--blue);padding:4px 10px;background:#ebf4ff;border-radius:7px;margin-top:5px;word-break:break-all;border:1px solid #b5d4f4;display:none}
+.mtog{display:inline-flex;border:1px solid var(--bd);border-radius:9px;overflow:hidden;margin-bottom:12px}
+.mtog button{border:none;border-radius:0;padding:6px 16px;font-size:13px;background:none;color:var(--muted)}
+.mtog button.on{background:var(--acc);color:#fff}
+.mtog button:first-child{border-right:1px solid var(--bd)}
+.step{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;background:var(--inp);border:1px solid var(--bd);border-radius:10px;margin-bottom:7px}
+.stepnum{width:24px;height:24px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;margin-top:7px}
+.stepbody{flex:1;display:flex;flex-direction:column;gap:5px}
+.stypes{display:flex;gap:5px;flex-wrap:wrap}
+.stype{padding:3px 10px;border-radius:20px;border:1px solid var(--bd);font-size:11px;cursor:pointer;background:var(--card);color:var(--muted);user-select:none}
+.stype.sa{background:#ebf4ff;color:#1a56db;border-color:#b5d4f4}
+.stype.sk{background:#f0fff4;color:#276749;border-color:#9ae6b4}
+.stype.sc2{background:#fff5f5;color:#c53030;border-color:#feb2b2}
+.stype.so{background:var(--head);color:var(--muted)}
+.stxt{width:100%;padding:7px 10px;border:1px solid var(--bd);border-radius:7px;font-size:13px;background:var(--card);color:#222;resize:vertical;min-height:46px}
+.stxt:focus{outline:none;border-color:var(--acc)}
+.dtrow{display:grid;grid-template-columns:88px 1fr;gap:6px 10px;font-size:13px}
+.dtrow .dl{color:var(--muted);font-size:12px}
+.qbtn{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;border:1.5px solid var(--bd);font-size:11px;cursor:pointer;color:var(--muted);background:var(--inp);flex-shrink:0;font-weight:500;user-select:none}
+.qbtn:hover{border-color:var(--acc);color:var(--acc)}
+.tipbox{display:none;margin-top:7px;padding:9px 12px;background:#ebf4ff;border-left:3px solid var(--acc);border-radius:0 8px 8px 0;font-size:12px;color:#1e3a6e;line-height:1.7}
+.tipbox code{background:#d0e4f7;padding:1px 5px;border-radius:4px;font-size:11px}
+.btrow{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--bd);font-size:13px}
+.btrow:last-child{border-bottom:none}.bname{flex:1}
+.tpill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;border:1px solid var(--bd);font-size:12px;cursor:pointer;background:var(--inp);color:var(--muted);user-select:none}
+.tpill.on{background:#f0fff4;color:#276749;border-color:#9ae6b4}
+.empty{text-align:center;padding:36px;color:var(--muted)}
+.pprev{font-size:12px;color:var(--blue);padding:5px 10px;background:#ebf4ff;border-radius:8px;margin-top:4px;word-break:break-all;border:1px solid #b5d4f4}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:10px 18px;background:#333;color:#fff;border-radius:10px;font-size:13px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+.mail-prev{background:var(--card);border:1px solid var(--bd);border-radius:14px;margin-top:12px;overflow:hidden}
+.mail-prev-hd{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;background:var(--head);border-bottom:1px solid var(--bd)}
+.mail-val{font-size:13px;padding:7px 10px;background:var(--inp);border-radius:8px;border:1px solid var(--bd);margin-bottom:10px}
+.mail-text{font-size:13px;font-family:sans-serif;white-space:pre-wrap;padding:12px;background:var(--inp);border-radius:8px;border:1px solid var(--bd);line-height:1.7;max-height:320px;overflow-y:auto;margin-bottom:10px}
+/* セットアップモーダル */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000}
+.modal{background:var(--card);border-radius:16px;padding:28px;max-width:560px;width:90%;max-height:85vh;overflow-y:auto}
+.modal h2{font-size:17px;font-weight:600;margin-bottom:6px;color:var(--acc)}
+.modal p{font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:14px}
+.modal ol{font-size:13px;line-height:2;padding-left:20px;margin-bottom:16px}
+.modal code{background:var(--inp);border:1px solid var(--bd);padding:2px 6px;border-radius:5px;font-size:12px}
+</style></head><body>
+<div class="wrap">
+
+<!-- セットアップモーダル（Firebase未設定時） -->
+<div class="modal-bg" id="setup-modal" style="display:none">
+  <div class="modal">
+    <h2>🔥 Firebase セットアップが必要です</h2>
+    <p>このツールをリアルタイム同期で使うには、Firebase の設定が必要です。</p>
+    <ol>
+      <li><a href="https://console.firebase.google.com/" target="_blank" style="color:var(--acc)">Firebase Console</a> にアクセス</li>
+      <li>「プロジェクトを追加」→ 任意の名前で作成</li>
+      <li>左メニュー「構築」→「Realtime Database」→「データベースを作成」<br>
+        <code>asia-southeast1</code>（シンガポール）を選択 → テストモードで開始</li>
+      <li>歯車アイコン →「プロジェクトの設定」→「マイアプリ」→「&lt;/&gt;」をクリック</li>
+      <li>表示された <code>firebaseConfig</code> をコピー</li>
+      <li>このHTMLファイルをテキストエディタで開き、<br>
+        <code>FIREBASE_CONFIG</code> の部分に貼り付けて保存</li>
+      <li>GitHub Pages 等に置いてURLを全員に共有</li>
+    </ol>
+    <p>設定が完了するまでは <strong>ローカル保存モード</strong> で動作します（データは自分のブラウザにのみ保存）。</p>
+    <button class="b-acc" onclick="document.getElementById('setup-modal').style.display='none'" style="width:100%">ローカルモードで続ける</button>
+  </div>
+</div>
+
+<!-- ヘッダー -->
+<div class="hdr">
+  <div style="display:flex;align-items:center">
+    <span class="hdr-logo">FRe:x Design inc.</span>
+    <span class="hdr-sep">|</span>
+    <span class="hdr-name">業務依頼ツール</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="sync-row">
+      <span class="dot" id="sdot"></span>
+      <span id="stxt">接続中...</span>
+    </div>
+    <button class="b-acc" onclick="goNew()">＋ 新規依頼</button>
+  </div>
+</div>
+
+<nav>
+  <button class="ntab on" id="tab-btn-list" onclick="showTab('list')">依頼一覧</button>
+  <button class="ntab" id="tab-btn-new" onclick="showTab('new')">新規依頼</button>
+  <button class="ntab" id="tab-btn-settings" onclick="showTab('settings')">設定</button>
+</nav>
+
+<!-- 一覧 -->
+<div id="tab-list">
+  <div class="stats">
+    <span class="spill">全 <strong id="cnt-all">0</strong> 件</span>
+    <span style="color:var(--bd)">|</span>
+    <span class="spill">未対応 <strong id="cnt-new" style="color:var(--blue)">0</strong></span>
+    <span class="spill">作業中 <strong id="cnt-wip" style="color:var(--amb)">0</strong></span>
+    <span class="spill">完了 <strong id="cnt-done" style="color:var(--grn)">0</strong></span>
+    <span class="spill">非表示 <strong id="cnt-hide" style="color:var(--muted)">0</strong></span>
+  </div>
+  <div id="pane-list">
+    <div class="fbar">
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        <select id="fl-status" onchange="renderList()" style="width:108px">
+          <option value="">すべて</option><option value="未対応">未対応</option>
+          <option value="作業中">作業中</option><option value="完了">完了</option>
+        </select>
+        <select id="fl-member" onchange="renderList()" style="width:118px"><option value="">全担当者</option></select>
+        <select id="fl-pri" onchange="renderList()" style="width:98px">
+          <option value="">全優先度</option><option value="高">高</option><option value="中">中</option><option value="低">低</option>
+        </select>
+        <button id="btn-showhide" onclick="toggleShowHidden()" class="b-sm b-muted">非表示を表示</button>
+      </div>
+    </div>
+    <div id="list-body"></div>
+  </div>
+  <div id="pane-detail" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <button onclick="backToList()" style="font-size:13px">← 一覧に戻る</button>
+      <div id="detail-actions" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    </div>
+    <div class="sc">
+      <div class="sc-hd"><div class="bar" style="background:var(--acc)"></div><div class="ttl" id="det-ttl-hd">詳細</div></div>
+      <div class="sc-bd">
+        <div id="det-badges" style="display:flex;gap:6px;margin-bottom:9px"></div>
+        <div id="det-title" style="font-size:17px;font-weight:500;margin-bottom:12px"></div>
+        <div class="dtrow" id="det-body"></div>
+      </div>
+    </div>
+    <div id="det-raiyo" class="sc" style="display:none"><div class="sc-hd"><div class="bar" style="background:#2b6cb0"></div><div class="ttl">依頼内容</div></div><div class="sc-bd" id="det-raiyo-body"></div></div>
+    <div id="det-note" class="sc" style="display:none"><div class="sc-hd"><div class="bar" style="background:#2b6cb0"></div><div class="ttl" id="det-note-ttl">作業内容</div></div><div class="sc-bd" id="det-note-body"></div></div>
+    <div id="det-biko" class="sc" style="display:none"><div class="sc-hd"><div class="bar" style="background:#805ad5"></div><div class="ttl">備考</div></div><div class="sc-bd" id="det-biko-body"></div></div>
+    <div id="det-imgs" class="sc" style="display:none"><div class="sc-hd"><div class="bar" style="background:#dd6b20"></div><div class="ttl">添付画像</div></div><div class="sc-bd"><div class="igrid" id="det-imgs-grid"></div></div></div>
+    <div id="det-files" class="sc" style="display:none"><div class="sc-hd"><div class="bar" style="background:#38a169"></div><div class="ttl">添付ファイル</div></div><div class="sc-bd" id="det-files-body"></div></div>
+    <div id="det-links" class="sc" style="display:none"><div class="sc-hd"><div class="bar" style="background:#805ad5"></div><div class="ttl">関連リンク</div></div><div class="sc-bd" id="det-links-body"></div></div>
+    <div id="det-odf" class="sc" style="display:none"><div class="sc-hd"><div class="bar" style="background:#2b6cb0"></div><div class="ttl">OneDriveフォルダ</div></div><div class="sc-bd" id="det-odf-body"></div></div>
+    <div class="mail-prev" id="mail-prev" style="display:none">
+      <div class="mail-prev-hd">
+        <div style="display:flex;align-items:center;gap:8px"><div class="bar" style="background:#38a169"></div><span style="font-size:13px;font-weight:500">メール通知 プレビュー</span></div>
+        <button onclick="closeMail()" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--muted);padding:0 4px">×</button>
+      </div>
+      <div style="padding:16px 18px">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:3px">宛先</div><div class="mail-val" id="mail-to"></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:3px">件名</div><div class="mail-val" id="mail-subj" style="font-weight:500"></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:3px">本文</div><div class="mail-text" id="mail-body"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <a id="mail-open-btn" href="#" class="b-grn" style="padding:7px 13px;border-radius:8px;text-decoration:none;font-size:13px;display:inline-flex;align-items:center;color:#fff;border:1px solid #38a169">📧 メールアプリで開く</a>
+          <button class="b-acc" onclick="copyMailAll()">📋 件名＋本文をコピー</button>
+          <button onclick="copyMail()">本文のみ</button>
+          <button onclick="closeMail()">閉じる</button>
+        </div>
+        <div style="margin-top:10px;padding:9px 12px;background:#f0fff4;border-radius:8px;font-size:12px;color:#276749;border:1px solid #9ae6b4;line-height:1.7">
+          「メールアプリで開く」でOutlook・Thunderbird等が起動します。宛先：<strong id="mail-to-hint"></strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 新規依頼 -->
+<div id="tab-new" style="display:none">
+  <div id="form-label" style="font-size:15px;font-weight:500;margin-bottom:13px">新規依頼作成</div>
+  <div class="sc">
+    <div class="sc-hd"><div class="bar" style="background:var(--acc)"></div><div class="ttl">基本情報</div></div>
+    <div class="sc-bd">
+      <div class="f">
+        <label class="lb">業務名 <span style="color:var(--red)">*</span></label>
+        <select id="f-biz" onchange="bizChange()"><option value="">— 業務名を選択 —</option></select>
+        <div id="f-biz-new" style="display:none;margin-top:8px;padding:11px 13px;background:var(--inp);border:1px solid var(--bd);border-radius:10px">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:7px">新しい業務名を入力</div>
+          <div style="display:flex;gap:8px"><input type="text" id="f-biz-txt" placeholder="例：高瀬橋 点検調書作成" style="flex:1"><button class="b-acc b-sm" onclick="saveBizNew()">登録して使用</button></div>
+        </div>
+      </div>
+      <div class="f"><label class="lb">依頼内容</label><textarea id="f-raiyo" placeholder="作業の詳細を記入" style="min-height:60px"></textarea></div>
+      <div class="r2">
+        <div class="f"><label class="lb">担当者</label><select id="f-to"></select></div>
+        <div class="f"><label class="lb">優先度</label><select id="f-pri"><option value="高">高</option><option value="中" selected>中</option><option value="低">低</option></select></div>
+      </div>
+      <div class="f"><label class="lb">作業期限 <span style="color:var(--red)">*</span></label><input type="date" id="f-due" style="width:200px"></div>
+    </div>
+  </div>
+  <div class="sc">
+    <div class="sc-hd"><div class="bar" style="background:#805ad5"></div><div class="ttl">作業者（複数選択可）</div></div>
+    <div class="sc-bd"><div style="font-size:12px;color:var(--muted);margin-bottom:8px">クリックで選択・解除</div><div class="chips" id="f-from-chips"></div></div>
+  </div>
+  <div class="sc">
+    <div class="sc-hd"><div class="bar" style="background:#2b6cb0"></div><div class="ttl">作業内容</div></div>
+    <div class="sc-bd">
+      <div class="mtog"><button id="btn-free" class="on" onclick="setNM('free')">自由記入</button><button id="btn-flow" onclick="setNM('flow')">フロー入力</button></div>
+      <div id="nm-free"><textarea id="f-note" placeholder="野帳作成、写真整理など" style="min-height:76px"></textarea></div>
+      <div id="nm-flow" style="display:none">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:9px">手順ごとに入力。種別をクリックして選択。</div>
+        <div id="flow-list"></div><button onclick="addStep()">＋ 手順を追加</button>
+      </div>
+    </div>
+  </div>
+  <div class="sc"><div class="sc-hd"><div class="bar" style="background:#9b59b6"></div><div class="ttl">備考</div></div><div class="sc-bd"><textarea id="f-biko" placeholder="その他連絡事項など" style="min-height:60px"></textarea></div></div>
+  <div class="sc">
+    <div class="sc-hd"><div class="bar" style="background:#dd6b20"></div><div class="ttl">添付画像・スクリーンショット</div></div>
+    <div class="sc-bd">
+      <div class="dz" id="drop-zone" onclick="document.getElementById('img-input').click()" ondragover="event.preventDefault();this.classList.add('ov')" ondragleave="this.classList.remove('ov')" ondrop="imgDrop(event)">
+        クリックして選択 / ドラッグ＆ドロップ<br><span style="font-size:12px">スクリーンショットは Ctrl+V で貼り付け・複数枚OK</span>
+      </div>
+      <input type="file" id="img-input" accept="image/*" multiple style="display:none" onchange="imgSel(event)">
+      <div id="img-count" style="font-size:11px;color:var(--muted);margin-top:5px"></div>
+      <div class="igrid" id="img-grid"></div>
+    </div>
+  </div>
+  <div class="sc"><div class="sc-hd"><div class="bar" style="background:#38a169"></div><div class="ttl">添付ファイル（PDF・Excel・Word等）</div></div><div class="sc-bd"><button onclick="document.getElementById('file-input').click()">＋ ファイルを追加</button><input type="file" id="file-input" multiple accept=".pdf,.xlsx,.xls,.docx,.doc,.csv,.pptx,.txt" style="display:none" onchange="fileSel(event)"><div id="file-list"></div></div></div>
+  <div class="sc"><div class="sc-hd"><div class="bar" style="background:#805ad5"></div><div class="ttl">関連リンク</div></div><div class="sc-bd"><div id="link-list"></div><button onclick="addLink()" style="margin-top:8px">＋ リンクを追加</button></div></div>
+  <div class="sc"><div class="sc-hd"><div class="bar" style="background:#2b6cb0"></div><div class="ttl">OneDriveフォルダ（複数登録可）</div></div><div class="sc-bd"><div id="odf-list"></div><button onclick="addOdf()" style="margin-top:8px">＋ フォルダを追加</button></div></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:20px">
+    <button onclick="cancelForm()">キャンセル</button><button class="b-acc" onclick="submitForm()">依頼を登録</button>
+  </div>
+</div>
+
+<!-- 設定 -->
+<div id="tab-settings" style="display:none">
+  <div class="sc">
+    <div class="sc-hd"><div class="bar" style="background:var(--acc)"></div><div class="ttl">業務名管理</div></div>
+    <div class="sc-bd">
+      <div style="display:flex;gap:8px;margin-bottom:11px"><input type="text" id="biz-input" placeholder="業務名を入力" style="flex:1"><button onclick="addBiz()">追加</button></div>
+      <div id="biz-table"></div>
+    </div>
+  </div>
+  <div class="sc">
+    <div class="sc-hd"><div class="bar" style="background:#805ad5"></div><div class="ttl">メンバー管理</div></div>
+    <div class="sc-bd">
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:1;min-width:90px"><label class="lb">氏名</label><input type="text" id="mbr-name" placeholder="山田 太郎"></div>
+        <div style="flex:2;min-width:150px"><label class="lb">メールアドレス</label><input type="email" id="mbr-email" placeholder="yamada@example.com"></div>
+        <button onclick="addMbr()">追加</button>
+      </div>
+      <div id="mbr-table"></div>
+    </div>
+  </div>
+  <div class="sc">
+    <div class="sc-hd"><div class="bar" style="background:var(--acc)"></div><div class="ttl">OneDriveパス設定（このPCのみ）</div></div>
+    <div class="sc-bd">
+      <div class="f">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span class="lb" style="margin:0">Windowsユーザー名</span><span class="qbtn" onclick="tipToggle('tip1')">?</span></div>
+        <div class="tipbox" id="tip1">エクスプローラーのアドレスバーに <code>%USERNAME%</code> と入力してEnterで確認できます。</div>
+        <input type="text" id="s-user" placeholder="例：yamada.taro" oninput="updateBasePrev()">
+      </div>
+      <div class="f">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span class="lb" style="margin:0">ベースパス（直接入力・省略可）</span><span class="qbtn" onclick="tipToggle('tip2')">?</span></div>
+        <div class="tipbox" id="tip2">例: <code>C:\Users\yamada\OneDrive - 会社名</code></div>
+        <input type="text" id="s-base" placeholder="例: C:\Users\yamada.taro\OneDrive - 秋田道路管理" oninput="updateBasePrev()">
+        <div id="base-prev" style="display:none" class="pprev"></div>
+      </div>
+      <button class="b-acc" onclick="savePath()">保存</button>
+    </div>
+  </div>
+</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  ★★★ ここにFirebaseの設定を貼り付けてください ★★★
+// ============================================================
+var FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAUByfipk5swPr-X82cxQpNfHXGZkpy3wQ",
+  authDomain: "gyoumuiraitu-ru.firebaseapp.com",
+  databaseURL: "https://gyoumuiraitu-ru-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "gyoumuiraitu-ru",
+  storageBucket: "gyoumuiraitu-ru.firebasestorage.app",
+  messagingSenderId: "408582005976",
+  appId: "1:408582005976:web:b9b2072ab9d39c1333a3ad"
+};
+// ============================================================
+
+var USE_FIREBASE = !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.databaseURL);
+var db = null;
+var dbRef = null;
+var isRemoteUpdate = false; // リモート更新フラグ（無限ループ防止）
+
+var reqs = [];
+var cfg = { username:'', basepath:'', members:[], bizNames:[] };
+var editId = null;
+var selFrom = [];
+var fImgs=[], fFiles=[], fLinks=[], fOdfs=[], fSteps=[];
+var noteMode = 'free';
+var showHidden = false;
+var mailBodyText = '';
+
+// ===== UTILS =====
+function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2200);}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function now(){return new Date().toLocaleDateString('ja-JP');}
+function setSyncStatus(state,msg){
+  var d=document.getElementById('sdot'),t=document.getElementById('stxt');
+  d.className='dot'+(state==='ok'?' ok':state==='busy'?' busy':state==='err'?' err':'');
+  t.textContent=msg;
+}
+
+// ===== STORAGE =====
+var LS_DATA='frex_data', LS_PATH='frex_path';
+
+function saveData(){
+  var data={reqs:reqs,members:cfg.members,bizNames:cfg.bizNames};
+  if(USE_FIREBASE && db){
+    setSyncStatus('busy','保存中...');
+    dbRef.set(data,function(err){
+      if(err){setSyncStatus('err','保存失敗');toast('保存に失敗しました');}
+      else{setSyncStatus('ok','同期済み');}
+    });
+  } else {
+    try{localStorage.setItem(LS_DATA,JSON.stringify(data));}catch(e){}
+    setSyncStatus('ok','ローカル保存済み');
+  }
+}
+
+function loadLocalPath(){
+  try{
+    var p=localStorage.getItem(LS_PATH);
+    if(p){var d=JSON.parse(p);cfg.username=d.username||'';cfg.basepath=d.basepath||'';
+      document.getElementById('s-user').value=cfg.username;
+      document.getElementById('s-base').value=cfg.basepath;}
+  }catch(e){}
+}
+function savePath(){
+  cfg.username=document.getElementById('s-user').value.trim();
+  cfg.basepath=document.getElementById('s-base').value.trim();
+  try{localStorage.setItem(LS_PATH,JSON.stringify({username:cfg.username,basepath:cfg.basepath}));}catch(e){}
+  toast('OneDriveパスを保存しました');
+}
+
+function applyData(data){
+  reqs=data.reqs||[];
+  cfg.members=data.members||[];
+  cfg.bizNames=data.bizNames||[];
+  syncMbrSelects();renderChips();renderMbrTable();renderBizSelect();renderBizTable();renderList();
+}
+
+// ===== FIREBASE INIT =====
+function initFirebase(){
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db=firebase.database();
+    dbRef=db.ref('frex_tool');
+    setSyncStatus('busy','接続中...');
+    // リアルタイムリスナー
+    dbRef.on('value',function(snapshot){
+      var data=snapshot.val();
+      if(data){
+        isRemoteUpdate=true;
+        applyData(data);
+        isRemoteUpdate=false;
+        setSyncStatus('ok','リアルタイム同期中');
+      } else {
+        setSyncStatus('ok','接続済み（データなし）');
+      }
+    },function(err){
+      setSyncStatus('err','接続エラー: '+err.message);
+    });
+  }catch(e){
+    USE_FIREBASE=false;
+    setSyncStatus('err','Firebase初期化エラー');
+    initLocalStorage();
+  }
+}
+
+function initLocalStorage(){
+  setSyncStatus('','ローカルモード');
+  try{var d=localStorage.getItem(LS_DATA);if(d)applyData(JSON.parse(d));}catch(e){}
+  if(!FIREBASE_CONFIG.apiKey){
+    document.getElementById('setup-modal').style.display='flex';
+  }
+}
+
+// ===== PATH =====
+function getBase(){return cfg.basepath||(cfg.username?'C:\\Users\\'+cfg.username+'\\OneDrive':'C:\\Users\\ユーザー名\\OneDrive');}
+function mkPath(rel){return rel?getBase()+'\\'+rel.replace(/\//g,'\\'):'';}
+function toFileUrl(p){return 'file:///'+p.replace(/\\/g,'/').replace(/ /g,'%20');}
+function updateBasePrev(){var u=document.getElementById('s-user').value.trim(),b=document.getElementById('s-base').value.trim(),el=document.getElementById('base-prev'),v=b||(u?'C:\\Users\\'+u+'\\OneDrive':'');if(v){el.style.display='block';el.textContent=v;}else el.style.display='none';}
+function tipToggle(id){var el=document.getElementById(id);el.style.display=el.style.display==='block'?'none':'block';}
+
+// ===== BIZ =====
+function addBiz(){var inp=document.getElementById('biz-input'),n=inp.value.trim();if(!n)return;if(!cfg.bizNames.find(function(b){return b.name===n;}))cfg.bizNames.push({name:n,active:true});inp.value='';renderBizTable();renderBizSelect();saveData();}
+function toggleBizActive(i){if(cfg.bizNames[i]){cfg.bizNames[i].active=!cfg.bizNames[i].active;renderBizTable();renderBizSelect();saveData();}}
+function startEditBiz(i){var row=document.getElementById('brow'+i);if(!row)return;var nameEl=row.querySelector('.bname'),editBtn=row.querySelector('.edit-btn');if(!nameEl||!editBtn)return;if(editBtn.textContent.trim()==='保存'){var inp=row.querySelector('input.bedit');if(inp&&inp.value.trim()){cfg.bizNames[i].name=inp.value.trim();saveData();renderBizSelect();}renderBizTable();return;}editBtn.textContent='保存';nameEl.innerHTML='<input class="bedit" type="text" value="'+esc(cfg.bizNames[i].name)+'" style="flex:1;padding:3px 7px;font-size:13px;border:1px solid var(--acc);border-radius:6px;background:var(--card);color:#222">';var inp2=nameEl.querySelector('input');if(inp2){inp2.focus();inp2.select();}}
+function startDelBiz(i){var btn=document.getElementById('bdel'+i);if(!btn)return;if(btn.getAttribute('data-c')==='1'){cfg.bizNames.splice(i,1);renderBizTable();renderBizSelect();saveData();toast('削除しました');}else{btn.setAttribute('data-c','1');btn.textContent='確認';btn.style.background='#C53030';btn.style.color='#fff';btn.style.borderColor='#C53030';setTimeout(function(){var b2=document.getElementById('bdel'+i);if(b2&&b2.getAttribute('data-c')==='1')renderBizTable();},3000);}}
+function renderBizTable(){var el=document.getElementById('biz-table');if(!cfg.bizNames.length){el.innerHTML='<p style="font-size:13px;color:var(--muted)">業務名が登録されていません</p>';return;}var html='<div style="border:1px solid var(--bd);border-radius:10px;overflow:hidden">';for(var i=0;i<cfg.bizNames.length;i++){var b=cfg.bizNames[i];html+='<div class="btrow" id="brow'+i+'"><span class="bname" id="bname'+i+'">'+esc(b.name)+'</span><span class="tpill'+(b.active?' on':'')+'" onclick="toggleBizActive('+i+')">'+(b.active?'表示中':'非表示')+'</span><button class="b-sm edit-btn" onclick="startEditBiz('+i+')">編集</button><button class="b-sm b-red" id="bdel'+i+'" onclick="startDelBiz('+i+')">削除</button></div>';}el.innerHTML=html+'</div>';}
+function renderBizSelect(){var sel=document.getElementById('f-biz'),cur=sel.value;var html='<option value="">— 業務名を選択 —</option>';for(var i=0;i<cfg.bizNames.length;i++)if(cfg.bizNames[i].active)html+='<option value="'+esc(cfg.bizNames[i].name)+'">'+esc(cfg.bizNames[i].name)+'</option>';html+='<option value="__new__">＋ 新規入力</option>';sel.innerHTML=html;if(cur&&cur!=='__new__')sel.value=cur;}
+function bizChange(){var v=document.getElementById('f-biz').value;document.getElementById('f-biz-new').style.display=v==='__new__'?'block':'none';if(v==='__new__')document.getElementById('f-biz-txt').focus();}
+function saveBizNew(){var n=document.getElementById('f-biz-txt').value.trim();if(!n){toast('業務名を入力してください');return;}if(!cfg.bizNames.find(function(b){return b.name===n;}))cfg.bizNames.push({name:n,active:true});renderBizTable();renderBizSelect();saveData();document.getElementById('f-biz').value=n;document.getElementById('f-biz-new').style.display='none';document.getElementById('f-biz-txt').value='';}
+function getBizVal(){var sel=document.getElementById('f-biz');return sel.value==='__new__'?document.getElementById('f-biz-txt').value.trim():sel.value;}
+function setBizVal(title){renderBizSelect();var sel=document.getElementById('f-biz');var found=cfg.bizNames.find(function(b){return b.name===title;});if(found){sel.value=title;document.getElementById('f-biz-new').style.display='none';}else{sel.value='__new__';document.getElementById('f-biz-new').style.display='block';document.getElementById('f-biz-txt').value=title;}}
+
+// ===== MEMBERS =====
+function addMbr(){var n=document.getElementById('mbr-name').value.trim(),e=document.getElementById('mbr-email').value.trim();if(!n)return;if(!cfg.members.find(function(m){return m.name===n;}))cfg.members.push({name:n,email:e});document.getElementById('mbr-name').value='';document.getElementById('mbr-email').value='';renderMbrTable();syncMbrSelects();renderChips();saveData();}
+function delMbr(name){cfg.members=cfg.members.filter(function(m){return m.name!==name;});renderMbrTable();syncMbrSelects();renderChips();saveData();}
+function renderMbrTable(){var el=document.getElementById('mbr-table');if(!cfg.members.length){el.innerHTML='<p style="font-size:13px;color:var(--muted)">メンバーがいません</p>';return;}var html='<div style="border:1px solid var(--bd);border-radius:10px;overflow:hidden">';for(var i=0;i<cfg.members.length;i++){var m=cfg.members[i];html+='<div class="btrow"><span style="flex:1">'+esc(m.name)+'</span><span style="font-size:12px;color:var(--muted);flex:2">'+esc(m.email||'—')+'</span><button class="b-sm b-red" onclick="delMbr(\''+esc(m.name)+'\')">削除</button></div>';}el.innerHTML=html+'</div>';}
+function syncMbrSelects(){['f-to','fl-member'].forEach(function(id){var s=document.getElementById(id),cur=s.value,isF=id==='fl-member';var html=isF?'<option value="">全担当者</option>':'<option value="">(未選択)</option>';for(var i=0;i<cfg.members.length;i++)html+='<option value="'+esc(cfg.members[i].name)+'">'+esc(cfg.members[i].name)+'</option>';s.innerHTML=html;if(cur)s.value=cur;});}
+function renderChips(){var el=document.getElementById('f-from-chips');if(!cfg.members.length){el.innerHTML='<span style="font-size:12px;color:var(--muted)">設定でメンバーを追加してください</span>';return;}var html='';for(var i=0;i<cfg.members.length;i++){var m=cfg.members[i],on=selFrom.indexOf(m.name)>=0;html+='<span class="chip'+(on?' on':'')+'" onclick="togFrom(\''+esc(m.name)+'\')">'+esc(m.name)+'</span>';}el.innerHTML=html;}
+function togFrom(name){var idx=selFrom.indexOf(name);if(idx>=0)selFrom.splice(idx,1);else selFrom.push(name);renderChips();}
+
+// ===== NOTE MODE =====
+function setNM(mode){noteMode=mode;document.getElementById('nm-free').style.display=mode==='free'?'':'none';document.getElementById('nm-flow').style.display=mode==='flow'?'':'none';document.getElementById('btn-free').className=mode==='free'?'on':'';document.getElementById('btn-flow').className=mode==='flow'?'on':'';}
+
+// ===== FLOW STEPS =====
+var STYPES=[{key:'作業',cls:'sa'},{key:'確認',cls:'sk'},{key:'注意',cls:'sc2'},{key:'その他',cls:'so'}];
+var STYPECOLOR={作業:'#1a56db',確認:'#276749',注意:'#c53030',その他:'#9e8f7e'};
+function addStep(text,type){text=text||'';type=type||'作業';var idx=fSteps.length;fSteps.push({text:text,type:type});var div=document.createElement('div');div.className='step';div.id='step'+idx;var tb='';for(var i=0;i<STYPES.length;i++)tb+='<span class="stype'+(type===STYPES[i].key?' '+STYPES[i].cls:'')+'" onclick="setStepType('+idx+',\''+STYPES[i].key+'\')">'+STYPES[i].key+'</span>';div.innerHTML='<div class="stepnum">'+(idx+1)+'</div><div class="stepbody"><div class="stypes">'+tb+'</div><textarea class="stxt" placeholder="手順の内容を入力..." oninput="updStep('+idx+',this.value)">'+esc(text)+'</textarea></div><button onclick="delStep('+idx+')" style="border:none;background:none;cursor:pointer;font-size:18px;color:var(--muted);padding:0 4px;margin-top:6px">×</button>';document.getElementById('flow-list').appendChild(div);}
+function setStepType(idx,type){if(!fSteps[idx])return;fSteps[idx].type=type;var row=document.getElementById('step'+idx);if(!row)return;var spans=row.querySelectorAll('.stype');for(var i=0;i<STYPES.length;i++)spans[i].className='stype'+(type===STYPES[i].key?' '+STYPES[i].cls:'');}
+function updStep(idx,val){if(fSteps[idx])fSteps[idx].text=val;}
+function delStep(idx){fSteps.splice(idx,1);var s=fSteps.slice();fSteps=[];document.getElementById('flow-list').innerHTML='';s.forEach(function(st){addStep(st.text,st.type);});}
+
+// ===== IMAGES =====
+function imgDrop(e){e.preventDefault();this.classList.remove('ov');Array.from(e.dataTransfer.files).forEach(function(f){f.type.startsWith('image/')?readImg(f):readFile(f);});}
+function imgSel(e){Array.from(e.target.files).forEach(readImg);e.target.value='';}
+function readImg(f){var r=new FileReader();r.onload=function(ev){fImgs.push({name:f.name,data:ev.target.result});renderImgGrid();};r.readAsDataURL(f);}
+function delImg(i){fImgs.splice(i,1);renderImgGrid();}
+function renderImgGrid(){document.getElementById('img-count').textContent=fImgs.length?fImgs.length+'枚添付中':'';var html='';for(var i=0;i<fImgs.length;i++)html+='<div class="ithumb"><img src="'+fImgs[i].data+'" alt="'+esc(fImgs[i].name)+'"><button class="xbtn" onclick="delImg('+i+')">×</button></div>';document.getElementById('img-grid').innerHTML=html;}
+document.addEventListener('paste',function(e){if(document.getElementById('tab-new').style.display==='none')return;Array.from(e.clipboardData.items||[]).filter(function(it){return it.type.startsWith('image/');}).forEach(function(it){readImg(it.getAsFile());});});
+
+// ===== FILES =====
+function fileSel(e){Array.from(e.target.files).forEach(readFile);e.target.value='';}
+function readFile(f){var r=new FileReader();r.onload=function(ev){fFiles.push({name:f.name,type:f.type,data:ev.target.result});renderFileList();};r.readAsDataURL(f);}
+function delFile(i){fFiles.splice(i,1);renderFileList();}
+function ficon(t){return t.includes('pdf')?'📄':t.includes('sheet')||t.includes('excel')||t.includes('csv')?'📊':t.includes('word')||t.includes('document')?'📝':'📎';}
+function renderFileList(){var html='';for(var i=0;i<fFiles.length;i++)html+='<div class="fi"><span style="font-size:16px;width:22px">'+ficon(fFiles[i].type)+'</span><span class="fn">'+esc(fFiles[i].name)+'</span><button class="b-sm b-red" onclick="delFile('+i+')">削除</button></div>';document.getElementById('file-list').innerHTML=html;}
+
+// ===== LINKS =====
+function addLink(label,url){label=label||'';url=url||'';var i=fLinks.length;fLinks.push({label:label,url:url});var div=document.createElement('div');div.className='lrow';div.id='lrow'+i;div.innerHTML='<input type="text" placeholder="ラベル（例：進捗表）" value="'+esc(label)+'" oninput="updLink('+i+',\'label\',this.value)" style="flex:1"><input type="text" placeholder="https://... またはファイルパス" value="'+esc(url)+'" oninput="updLink('+i+',\'url\',this.value)" style="flex:2.5"><button class="b-sm b-red" onclick="delLink('+i+')">×</button>';document.getElementById('link-list').appendChild(div);}
+function updLink(i,k,v){if(fLinks[i])fLinks[i][k]=v;}
+function delLink(i){fLinks.splice(i,1);var s=fLinks.slice();fLinks=[];document.getElementById('link-list').innerHTML='';s.forEach(function(l){addLink(l.label,l.url);});}
+
+// ===== ODF =====
+function addOdf(label,path){label=label||'';path=path||'';var i=fOdfs.length;fOdfs.push({label:label,path:path});var wrap=document.createElement('div');wrap.id='odfwrap'+i;wrap.innerHTML='<div class="lrow"><input type="text" placeholder="ラベル（例：メイン資料）" value="'+esc(label)+'" oninput="updOdf('+i+',\'label\',this.value)" style="flex:1"><input type="text" placeholder="相対パス（例: 秋田事業所\\2024\\高瀬橋）" value="'+esc(path)+'" oninput="updOdfPath('+i+',this.value)" style="flex:2.5"><button class="b-sm b-red" onclick="delOdf('+i+')">×</button></div><div class="oprev" id="oprev'+i+'">'+(path?mkPath(path):'')+'</div>';if(path)wrap.querySelector('.oprev').style.display='block';document.getElementById('odf-list').appendChild(wrap);}
+function updOdf(i,k,v){if(fOdfs[i])fOdfs[i][k]=v;}
+function updOdfPath(i,v){if(fOdfs[i]){fOdfs[i].path=v;var el=document.getElementById('oprev'+i);if(el){if(v){el.style.display='block';el.textContent=mkPath(v);}else el.style.display='none';}}}
+function delOdf(i){fOdfs.splice(i,1);var s=fOdfs.slice();fOdfs=[];document.getElementById('odf-list').innerHTML='';s.forEach(function(o){addOdf(o.label,o.path);});}
+
+// ===== FORM =====
+function goNew(){editId=null;resetForm();showTab('new');}
+function cancelForm(){editId=null;resetForm();showTab('list');}
+function resetForm(){document.getElementById('form-label').textContent='新規依頼作成';['f-due','f-raiyo','f-note','f-biko'].forEach(function(id){document.getElementById(id).value='';});document.getElementById('f-pri').value='中';document.getElementById('f-to').value='';selFrom=[];renderChips();fImgs=[];fFiles=[];fLinks=[];fOdfs=[];fSteps=[];renderImgGrid();renderFileList();document.getElementById('link-list').innerHTML='';document.getElementById('odf-list').innerHTML='';document.getElementById('flow-list').innerHTML='';noteMode='free';setNM('free');renderBizSelect();document.getElementById('f-biz').value='';document.getElementById('f-biz-new').style.display='none';document.getElementById('f-biz-txt').value='';}
+function submitForm(){var t=getBizVal();if(!t){toast('業務名を選択または入力してください');return;}var id=editId||(reqs.length?Math.max.apply(null,reqs.map(function(r){return r.id;}))+1:1);var obj={id:id,title:t,from:selFrom.slice(),to:document.getElementById('f-to').value,priority:document.getElementById('f-pri').value,due:document.getElementById('f-due').value,raiyo:document.getElementById('f-raiyo').value.trim(),noteMode:noteMode,noteText:document.getElementById('f-note').value.trim(),noteSteps:noteMode==='flow'?fSteps.filter(function(s){return s.text.trim();}).map(function(s){return {text:s.text,type:s.type};}): [],biko:document.getElementById('f-biko').value.trim(),imgs:fImgs.slice(),files:fFiles.slice(),links:fLinks.filter(function(l){return l.url||l.label;}).map(function(l){return {label:l.label,url:l.url};}),odfs:fOdfs.filter(function(o){return o.path;}).map(function(o){return {label:o.label,path:o.path};}),status:editId?(reqs.find(function(r){return r.id===editId;})||{}).status||'未対応':'未対応',hidden:editId?(reqs.find(function(r){return r.id===editId;})||{}).hidden||false:false,created:editId?(reqs.find(function(r){return r.id===editId;})||{}).created||now():now()};if(editId)reqs=reqs.map(function(r){return r.id===editId?obj:r;});else reqs.unshift(obj);editId=null;resetForm();showTab('list');saveData();}
+
+// ===== LIST =====
+function sbadge(s){var m={未対応:'<span class="bdg bdg-new">未対応</span>',作業中:'<span class="bdg bdg-wip">作業中</span>',完了:'<span class="bdg bdg-done">完了</span>'};return m[s]||('<span class="bdg">'+esc(s)+'</span>');}
+function pbadge(p){var m={高:'<span class="bdg bdg-hi">高</span>',中:'<span class="bdg bdg-mid">中</span>',低:'<span class="bdg bdg-lo">低</span>'};return m[p]||esc(p);}
+function priColor(p){return {高:'#E53E3E',中:'#DD6B20',低:'#38A169'}[p]||'#ccc';}
+function toggleShowHidden(){showHidden=!showHidden;document.getElementById('btn-showhide').textContent=showHidden?'非表示を隠す':'非表示を表示';document.getElementById('btn-showhide').style.color=showHidden?'var(--acc)':'var(--muted)';renderList();}
+function cycleStatus(id){var r=reqs.find(function(x){return x.id===id;});if(r){var m={未対応:'作業中',作業中:'完了',完了:'未対応'};r.status=m[r.status]||'未対応';renderList();saveData();}}
+function toggleHide(id){var r=reqs.find(function(x){return x.id===id;});if(r){r.hidden=!r.hidden;renderList();saveData();}}
+function renderList(){var fs=document.getElementById('fl-status').value,fa=document.getElementById('fl-member').value,fp=document.getElementById('fl-pri').value;var d=reqs.filter(function(r){if(!showHidden&&r.hidden)return false;return(!fs||r.status===fs)&&(!fa||r.to===fa)&&(!fp||r.priority===fp);});var el=document.getElementById('list-body');if(!d.length){el.innerHTML='<div class="empty">依頼がありません</div>';updStats();return;}var html='';for(var i=0;i<d.length;i++){var r=d[i];var meta=sbadge(r.status)+' '+pbadge(r.priority);if(r.to)meta+='<span style="font-size:12px;color:var(--muted)">担当: '+esc(r.to)+'</span>';if(r.due)meta+='<span style="font-size:12px;color:var(--muted)">期限: '+esc(r.due)+'</span>';if(r.from&&r.from.length)meta+='<span style="font-size:12px;color:var(--muted)">作業者: '+esc(r.from.join('・'))+'</span>';if(r.imgs&&r.imgs.length)meta+='<span style="font-size:11px;color:var(--muted)">🖼 '+r.imgs.length+'枚</span>';if(r.files&&r.files.length)meta+='<span style="font-size:11px;color:var(--muted)">📎 '+r.files.length+'件</span>';html+='<div class="rc'+(r.hidden?' faded':'')+'"><div class="rc-inner"><div class="rc-bar" style="background:'+priColor(r.priority)+'"></div><div class="rc-body" onclick="showDetail('+r.id+')"><div class="rc-title">'+esc(r.title)+(r.hidden?'&nbsp;<span class="bdg" style="background:#f5f0e8;color:var(--muted);border:1px solid var(--bd);font-size:10px">非表示</span>':'')+'</div><div class="rc-meta">'+meta+'</div></div><div class="rc-right"><button class="b-sm" onclick="cycleStatus('+r.id+')">状態更新</button><button class="b-muted" onclick="toggleHide('+r.id+')">'+(r.hidden?'表示に戻す':'非表示')+'</button></div></div></div>';}el.innerHTML=html;updStats();}
+function updStats(){document.getElementById('cnt-all').textContent=reqs.length;document.getElementById('cnt-new').textContent=reqs.filter(function(r){return !r.hidden&&r.status==='未対応';}).length;document.getElementById('cnt-wip').textContent=reqs.filter(function(r){return !r.hidden&&r.status==='作業中';}).length;document.getElementById('cnt-done').textContent=reqs.filter(function(r){return !r.hidden&&r.status==='完了';}).length;document.getElementById('cnt-hide').textContent=reqs.filter(function(r){return r.hidden;}).length;}
+
+// ===== DETAIL =====
+function showDetail(id){var r=reqs.find(function(x){return x.id===id;});if(!r)return;document.getElementById('pane-list').style.display='none';document.getElementById('pane-detail').style.display='block';closeMail();document.getElementById('det-ttl-hd').textContent=r.title;document.getElementById('det-badges').innerHTML=pbadge(r.priority)+'&nbsp;'+sbadge(r.status);document.getElementById('det-title').textContent=r.title;var bh='';if(r.from&&r.from.length)bh+='<span class="dl">作業者</span><span>'+esc(r.from.join('、'))+'</span>';if(r.to)bh+='<span class="dl">担当者</span><span>'+esc(r.to)+'</span>';if(r.due)bh+='<span class="dl">作業期限</span><span style="color:var(--red);font-weight:500">'+esc(r.due)+'</span>';bh+='<span class="dl">登録日</span><span style="color:var(--muted);font-size:12px">'+esc(r.created)+'</span>';document.getElementById('det-body').innerHTML=bh;sh2('det-raiyo',r.raiyo,'<div style="white-space:pre-wrap;font-size:13px">'+esc(r.raiyo||'')+'</div>','det-raiyo-body');var hasNote=(r.noteMode==='free'&&r.noteText)||(r.noteMode==='flow'&&r.noteSteps&&r.noteSteps.length);if(hasNote){document.getElementById('det-note').style.display='block';document.getElementById('det-note-ttl').textContent=r.noteMode==='flow'?'作業内容（フロー）':'作業内容';if(r.noteMode==='free'){document.getElementById('det-note-body').innerHTML='<div style="white-space:pre-wrap;font-size:13px">'+esc(r.noteText)+'</div>';}else{var sh='';for(var i=0;i<r.noteSteps.length;i++){var s=r.noteSteps[i];sh+='<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:8px"><div style="width:26px;height:26px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">'+(i+1)+'</div><div><div style="font-size:11px;font-weight:500;margin-bottom:2px;color:'+(STYPECOLOR[s.type]||'#9e8f7e')+'">'+esc(s.type)+'</div><div style="font-size:13px;line-height:1.6;white-space:pre-wrap">'+esc(s.text)+'</div></div></div>';}document.getElementById('det-note-body').innerHTML=sh;}}else document.getElementById('det-note').style.display='none';sh2('det-biko',r.biko,'<div style="white-space:pre-wrap;font-size:13px">'+esc(r.biko||'')+'</div>','det-biko-body');if(r.imgs&&r.imgs.length){document.getElementById('det-imgs').style.display='block';var gh='';for(var j=0;j<r.imgs.length;j++)gh+='<div class="ithumb"><img src="'+r.imgs[j].data+'" style="cursor:pointer" onclick="window.open(this.src)"></div>';document.getElementById('det-imgs-grid').innerHTML=gh;}else document.getElementById('det-imgs').style.display='none';if(r.files&&r.files.length){document.getElementById('det-files').style.display='block';var fh='';for(var k=0;k<r.files.length;k++){var f=r.files[k];fh+='<div class="fi"><span style="font-size:16px;width:22px">'+ficon(f.type)+'</span><span class="fn">'+esc(f.name)+'</span><a href="'+f.data+'" download="'+esc(f.name)+'" style="text-decoration:none;padding:4px 9px;border:1px solid var(--bd);border-radius:8px;font-size:12px;color:#222">保存</a></div>';}document.getElementById('det-files-body').innerHTML=fh;}else document.getElementById('det-files').style.display='none';if(r.links&&r.links.length){document.getElementById('det-links').style.display='block';var lh='';for(var li=0;li<r.links.length;li++){var lk=r.links[li];var isU=lk.url&&(lk.url.startsWith('http')||lk.url.startsWith('//'));lh+='<div style="margin-bottom:6px;display:flex;align-items:center;gap:7px">'+(isU?'<a href="'+esc(lk.url)+'" target="_blank" style="color:var(--blue);font-size:13px">'+esc(lk.label||lk.url)+'</a>':'<span style="font-size:13px">'+esc(lk.label||lk.url)+'</span><button class="b-sm" onclick="copyText(\''+esc(lk.url)+'\')">パスコピー</button>')+'</div>';}document.getElementById('det-links-body').innerHTML=lh;}else document.getElementById('det-links').style.display='none';if(r.odfs&&r.odfs.length){document.getElementById('det-odf').style.display='block';var oh='';for(var oi=0;oi<r.odfs.length;oi++){var od=r.odfs[oi];var fp=mkPath(od.path);oh+='<div style="margin-bottom:9px"><div style="font-size:12px;font-weight:500;color:var(--muted);margin-bottom:3px">'+esc(od.label||'フォルダ')+'</div><a href="'+toFileUrl(fp)+'" target="_blank" style="color:var(--blue);font-size:12px;word-break:break-all">'+esc(fp)+'</a> <button class="b-sm" onclick="copyText(\''+esc(fp)+'\')">コピー</button></div>';}document.getElementById('det-odf-body').innerHTML=oh;}else document.getElementById('det-odf').style.display='none';document.getElementById('detail-actions').innerHTML=''+'<button onclick="editReq('+r.id+')">編集</button>'+'<button onclick="cycleStatus('+r.id+');showDetail('+r.id+')">状態更新</button>'+'<button class="b-grn" onclick="openMail('+r.id+')">メール通知</button>'+'<button class="b-muted" onclick="toggleHide('+r.id+');backToList()">'+(r.hidden?'表示に戻す':'非表示にする')+'</button>'+'<button class="b-red" id="del-btn-'+r.id+'" onclick="startDelReq('+r.id+')">削除</button>';}
+function sh2(wrapId,val,html,bodyId){if(val){document.getElementById(wrapId).style.display='block';document.getElementById(bodyId).innerHTML=html;}else document.getElementById(wrapId).style.display='none';}
+function backToList(){document.getElementById('pane-detail').style.display='none';document.getElementById('pane-list').style.display='block';renderList();}
+function copyText(t){navigator.clipboard.writeText(t).then(function(){toast('コピーしました');});}
+function startDelReq(id){var btn=document.getElementById('del-btn-'+id);if(!btn)return;if(btn.getAttribute('data-c')==='1'){reqs=reqs.filter(function(r){return r.id!==id;});saveData();backToList();toast('削除しました');}else{btn.setAttribute('data-c','1');btn.textContent='確認';btn.style.background='#C53030';btn.style.color='#fff';btn.style.borderColor='#C53030';setTimeout(function(){var b2=document.getElementById('del-btn-'+id);if(b2&&b2.getAttribute('data-c')==='1'){b2.setAttribute('data-c','');b2.textContent='削除';b2.style.background='';b2.style.color='';b2.style.borderColor='';}},3000);}}
+function editReq(id){var r=reqs.find(function(x){return x.id===id;});if(!r)return;editId=id;document.getElementById('form-label').textContent='依頼を編集';setBizVal(r.title);document.getElementById('f-to').value=r.to||'';document.getElementById('f-pri').value=r.priority||'中';document.getElementById('f-due').value=r.due||'';document.getElementById('f-raiyo').value=r.raiyo||'';document.getElementById('f-note').value=r.noteText||'';document.getElementById('f-biko').value=r.biko||'';selFrom=(r.from||[]).slice();renderChips();fImgs=(r.imgs||[]).slice();renderImgGrid();fFiles=(r.files||[]).slice();renderFileList();fLinks=[];document.getElementById('link-list').innerHTML='';(r.links||[]).forEach(function(l){addLink(l.label,l.url);});fSteps=[];document.getElementById('flow-list').innerHTML='';(r.noteSteps||[]).forEach(function(s){addStep(s.text,s.type);});fOdfs=[];document.getElementById('odf-list').innerHTML='';(r.odfs||[]).forEach(function(o){addOdf(o.label,o.path);});noteMode=r.noteMode||'free';setNM(noteMode);showTab('new');}
+
+// ===== MAIL =====
+function openMail(id){var r=reqs.find(function(x){return x.id===id;});if(!r)return;var workers=cfg.members.filter(function(m){return r.from&&r.from.indexOf(m.name)>=0;});var emails=workers.filter(function(m){return m.email;}).map(function(m){return m.email;});var sender=r.to||'担当者',wnames=workers.length?workers.map(function(m){return m.name;}).join('・'):'（未設定）';var noteStr='（なし）';if(r.noteMode==='flow'&&r.noteSteps&&r.noteSteps.length)noteStr=r.noteSteps.map(function(s,i){return '  '+(i+1)+'. ['+s.type+'] '+s.text;}).join('\n');else if(r.noteText)noteStr=r.noteText;var lines=[wnames+' さん','','お疲れ様です。'+sender+' です。','','下記の作業についてご対応をお願いいたします。','','━━━━━━━━━━━━━━━━━━━━━━','■ 業　務　名：'+r.title,'■ 優 先 度　：'+(r.priority||'—'),'■ 作 業 期 限：'+(r.due||'未設定'),'━━━━━━━━━━━━━━━━━━━━━━','','【依頼内容】',(r.raiyo||'（なし）'),'','【作業内容】',noteStr];if(r.biko){lines.push('');lines.push('【備考】');lines.push(r.biko);}if(r.odfs&&r.odfs.length){lines.push('');lines.push('【関連フォルダ（OneDrive）】');r.odfs.forEach(function(o){lines.push('  '+(o.label?o.label+': ':'')+mkPath(o.path));});}if(r.links&&r.links.length){lines.push('');lines.push('【関連リンク】');r.links.forEach(function(l){lines.push('  '+(l.label?l.label+': ':'')+l.url);});}lines.push('','━━━━━━━━━━━━━━━━━━━━━━','ご不明な点がございましたらいつでもご連絡ください。','よろしくお願いいたします。','',sender);mailBodyText=lines.join('\n');var subj='【作業依頼】'+r.title;var href=emails.length?'mailto:'+emails.join(',')+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(mailBodyText):'';document.getElementById('mail-to').textContent=emails.length?emails.join(', '):'（メールアドレス未設定）';document.getElementById('mail-to-hint').textContent=emails.length?emails.join(', '):'（未設定）';document.getElementById('mail-subj').textContent=subj;document.getElementById('mail-body').textContent=mailBodyText;var openBtn=document.getElementById('mail-open-btn');if(href){openBtn.href=href;openBtn.style.opacity='1';}else{openBtn.href='#';openBtn.onclick=function(e){e.preventDefault();toast('メールアドレスを設定タブで登録してください');};openBtn.style.opacity='0.5';}document.getElementById('mail-prev').style.display='block';setTimeout(function(){document.getElementById('mail-prev').scrollIntoView({behavior:'smooth',block:'start'});},50);}
+function closeMail(){document.getElementById('mail-prev').style.display='none';}
+function copyMail(){navigator.clipboard.writeText(mailBodyText).then(function(){toast('本文をコピーしました');});}
+function copyMailAll(){var s=document.getElementById('mail-subj').textContent;navigator.clipboard.writeText('件名: '+s+'\n\n'+mailBodyText).then(function(){toast('件名＋本文をコピーしました');});}
+
+// ===== TABS =====
+function showTab(t){['list','new','settings'].forEach(function(id){document.getElementById('tab-'+id).style.display=id===t?'block':'none';document.getElementById('tab-btn-'+id).className='ntab'+(id===t?' on':'');});if(t==='list'){document.getElementById('pane-detail').style.display='none';document.getElementById('pane-list').style.display='block';renderList();}if(t==='new'&&!editId)resetForm();}
+
+// ===== INIT =====
+loadLocalPath();
+if(USE_FIREBASE){
+  initFirebase();
+} else {
+  initLocalStorage();
+}
+</script>
+</body></html>
