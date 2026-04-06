@@ -309,13 +309,13 @@ button:hover{background:var(--head)}
 //  ★★★ ここにFirebaseの設定を貼り付けてください ★★★
 // ============================================================
 var FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  databaseURL: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyAUByfipk5swPr-X82cxQpNfHXGZkpy3wQ",
+  authDomain: "gyoumuiraitu-ru.firebaseapp.com",
+  databaseURL: "https://gyoumuiraitu-ru-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "gyoumuiraitu-ru",
+  storageBucket: "gyoumuiraitu-ru.firebasestorage.app",
+  messagingSenderId: "408582005976",
+  appId: "1:408582005976:web:b9b2072ab9d39c1333a3ad"
 };
 // ============================================================
 
@@ -392,7 +392,13 @@ function initLocalStorage(){setSyncStatus('','ローカルモード');try{var d=
 
 // ===== PATH =====
 function getBase(){return cfg.basepath||(cfg.username?'C:\\Users\\'+cfg.username+'\\OneDrive':'C:\\Users\\ユーザー名\\OneDrive');}
-function mkPath(rel){return rel?getBase()+'\\'+rel.replace(/\//g,'\\'):'';}
+function mkPath(rel){
+  if(!rel)return '';
+  var r=rel.replace(/\//g,'\\');
+  // すでにフルパス（C:\等）が入力されている場合はそのまま返す
+  if(/^[A-Za-z]:\\/.test(r)||r.startsWith('\\\\'))return r;
+  return getBase()+'\\'+r;
+}
 function toFileUrl(p){return 'file:///'+p.replace(/\\/g,'/').replace(/ /g,'%20');}
 function updateBasePrev(){var u=document.getElementById('s-user').value.trim(),b=document.getElementById('s-base').value.trim(),el=document.getElementById('base-prev'),v=b||(u?'C:\\Users\\'+u+'\\OneDrive':'');if(v){el.style.display='block';el.textContent=v;}else el.style.display='none';}
 function tipToggle(id){var el=document.getElementById(id);el.style.display=el.style.display==='block'?'none':'block';}
