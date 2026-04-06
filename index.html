@@ -158,8 +158,8 @@ button:hover{background:var(--head)}
         <div class="dtrow" id="det-body"></div>
       </div>
     </div>
-    <div id="det-raiyo" class="sc" style="display:none"><div class="sc-hd"><div class="bar" style="background:#2b6cb0"></div><div class="ttl">指示内容</div></div><div class="sc-bd" id="det-raiyo-body"></div></div>
-    <div id="det-note" class="sc" style="display:none"><div class="sc-hd"><div class="bar" style="background:#2b6cb0"></div><div class="ttl" id="det-note-ttl">作業内容</div></div><div class="sc-bd" id="det-note-body"></div></div>
+    <div id="det-raiyo" class="sc" style="display:none"><div class="sc-hd"><div class="bar" style="background:#2b6cb0"></div><div class="ttl">作業内容</div></div><div class="sc-bd" id="det-raiyo-body"></div></div>
+    <div id="det-note" class="sc" style="display:none"><div class="sc-hd"><div class="bar" style="background:#2b6cb0"></div><div class="ttl" id="det-note-ttl">作業手順</div></div><div class="sc-bd" id="det-note-body"></div></div>
     <div id="det-biko" class="sc" style="display:none"><div class="sc-hd"><div class="bar" style="background:#805ad5"></div><div class="ttl">備考</div></div><div class="sc-bd" id="det-biko-body"></div></div>
     <div id="det-imgs" class="sc" style="display:none"><div class="sc-hd"><div class="bar" style="background:#dd6b20"></div><div class="ttl">添付画像</div></div><div class="sc-bd"><div class="igrid" id="det-imgs-grid"></div></div></div>
     <div id="det-files" class="sc" style="display:none"><div class="sc-hd"><div class="bar" style="background:#38a169"></div><div class="ttl">添付ファイル</div></div><div class="sc-bd" id="det-files-body"></div></div>
@@ -200,7 +200,7 @@ button:hover{background:var(--head)}
         </div>
       </div>
       <div class="f">
-        <label class="lb">指示内容</label>
+        <label class="lb">作業内容</label>
         <div style="display:flex;gap:6px;margin-bottom:5px">
           <button class="b-sm" onclick="openCopyModal('raiyo')" style="font-size:11px">📋 別業務からコピー</button>
         </div>
@@ -218,7 +218,7 @@ button:hover{background:var(--head)}
     <div class="sc-bd"><div style="font-size:12px;color:var(--muted);margin-bottom:8px">クリックで選択・解除</div><div class="chips" id="f-from-chips"></div></div>
   </div>
   <div class="sc">
-    <div class="sc-hd"><div class="bar" style="background:#2b6cb0"></div><div class="ttl">作業内容</div></div>
+    <div class="sc-hd"><div class="bar" style="background:#2b6cb0"></div><div class="ttl">作業手順</div></div>
     <div class="sc-bd">
       <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
         <div class="mtog" style="margin-bottom:0">
@@ -473,7 +473,7 @@ function priColor(p){return {高:'#E53E3E',中:'#DD6B20',低:'#38A169'}[p]||'#cc
 function toggleShowHidden(){showHidden=!showHidden;document.getElementById('btn-showhide').textContent=showHidden?'非表示を隠す':'非表示を表示';document.getElementById('btn-showhide').style.color=showHidden?'var(--acc)':'var(--muted)';renderList();}
 function cycleStatus(id){var r=reqs.find(function(x){return x.id===id;});if(r){var m={未対応:'作業中',作業中:'完了',完了:'未対応'};r.status=m[r.status]||'未対応';renderList();saveData();}}
 function toggleHide(id){var r=reqs.find(function(x){return x.id===id;});if(r){r.hidden=!r.hidden;renderList();saveData();}}
-function renderList(){var fs=document.getElementById('fl-status').value,fa=document.getElementById('fl-member').value,fp=document.getElementById('fl-pri').value;var d=reqs.filter(function(r){if(!showHidden&&r.hidden)return false;return(!fs||r.status===fs)&&(!fa||r.to===fa)&&(!fp||r.priority===fp);});var el=document.getElementById('list-body');if(!d.length){el.innerHTML='<div class="empty">指示がありません</div>';updStats();return;}var html='';for(var i=0;i<d.length;i++){var r=d[i];var meta=sbadge(r.status)+' '+pbadge(r.priority);if(r.to)meta+='<span style="font-size:12px;color:var(--muted)">担当: '+esc(r.to)+'</span>';if(r.due)meta+='<span style="font-size:12px;color:var(--muted)">期限: '+esc(r.due)+'</span>';if(r.from&&r.from.length)meta+='<span style="font-size:12px;color:var(--muted)">作業者: '+esc(r.from.join('・'))+'</span>';if(r.imgs&&r.imgs.length)meta+='<span style="font-size:11px;color:var(--muted)">🖼 '+r.imgs.length+'枚</span>';if(r.files&&r.files.length)meta+='<span style="font-size:11px;color:var(--muted)">📎 '+r.files.length+'件</span>';html+='<div class="rc'+(r.hidden?' faded':'')+'"><div class="rc-inner"><div class="rc-bar" style="background:'+priColor(r.priority)+'"></div><div class="rc-body" onclick="showDetail('+r.id+')"><div class="rc-title">'+esc(r.title)+(r.hidden?'&nbsp;<span class="bdg" style="background:#f5f0e8;color:var(--muted);border:1px solid var(--bd);font-size:10px">非表示</span>':'')+'</div><div class="rc-meta">'+meta+'</div></div><div class="rc-right"><button class="b-sm" onclick="cycleStatus('+r.id+')">状態更新</button><button class="b-muted" onclick="toggleHide('+r.id+')">'+(r.hidden?'表示に戻す':'非表示')+'</button></div></div></div>';}el.innerHTML=html;updStats();}
+function renderList(){var fs=document.getElementById('fl-status').value,fa=document.getElementById('fl-member').value,fp=document.getElementById('fl-pri').value;var d=reqs.filter(function(r){if(!showHidden&&r.hidden)return false;return(!fs||r.status===fs)&&(!fa||r.to===fa)&&(!fp||r.priority===fp);});var el=document.getElementById('list-body');if(!d.length){el.innerHTML='<div class="empty">指示がありません</div>';updStats();return;}var html='';for(var i=0;i<d.length;i++){var r=d[i];var meta=sbadge(r.status)+' '+pbadge(r.priority);if(r.to)meta+='<span style="font-size:12px;color:var(--muted)">担当: '+esc(r.to)+'</span>';if(r.due)meta+='<span style="font-size:12px;color:var(--muted)">期限: '+esc(r.due)+'</span>';if(r.from&&r.from.length)meta+='<span style="font-size:12px;color:var(--muted)">作業者: '+esc(r.from.join('・'))+'</span>';if(r.imgs&&r.imgs.length)meta+='<span style="font-size:11px;color:var(--muted)">🖼 '+r.imgs.length+'枚</span>';if(r.files&&r.files.length)meta+='<span style="font-size:11px;color:var(--muted)">📎 '+r.files.length+'件</span>';html+='<div class="rc'+(r.hidden?' faded':'')+'"><div class="rc-inner"><div class="rc-bar" style="background:'+priColor(r.priority)+'"></div><div class="rc-body" onclick="showDetail('+r.id+')"><div class="rc-title">'+esc(r.title)+(r.hidden?'&nbsp;<span class="bdg" style="background:#f5f0e8;color:var(--muted);border:1px solid var(--bd);font-size:10px">非表示</span>':'')+'</div>'+(r.raiyo?'<div style="font-size:12px;color:#444;margin-bottom:4px;padding:4px 8px;background:var(--head);border-radius:6px;border-left:3px solid var(--acc)">'+esc(r.raiyo.length>60?r.raiyo.substring(0,60)+'…':r.raiyo)+'</div>':'')+'<div class="rc-meta">'+meta+'</div></div><div class="rc-right"><button class="b-sm" onclick="cycleStatus('+r.id+')">状態更新</button><button class="b-muted" onclick="toggleHide('+r.id+')">'+(r.hidden?'表示に戻す':'非表示')+'</button></div></div></div>';}el.innerHTML=html;updStats();}
 function updStats(){document.getElementById('cnt-all').textContent=reqs.length;document.getElementById('cnt-new').textContent=reqs.filter(function(r){return !r.hidden&&r.status==='未対応';}).length;document.getElementById('cnt-wip').textContent=reqs.filter(function(r){return !r.hidden&&r.status==='作業中';}).length;document.getElementById('cnt-done').textContent=reqs.filter(function(r){return !r.hidden&&r.status==='完了';}).length;document.getElementById('cnt-hide').textContent=reqs.filter(function(r){return r.hidden;}).length;}
 
 // ===== DETAIL =====
