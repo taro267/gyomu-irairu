@@ -506,9 +506,9 @@ function renderList(){
     var dueStr='';
     if(r.due) dueStr='<span style="font-size:12px;'+dueColor(r.due)+'">📅 '+esc(r.due)+esc(dueLabel(r.due))+'</span>';
     // 担当者
-    var toStr=r.to?'<span style="font-size:12px;color:var(--muted)">👤 '+esc(r.to)+'</span>':'';
+    var toStr=r.to?'<span style="font-size:12px;color:var(--muted)">担当: <span style="color:#222">'+esc(r.to)+'</span></span>':'';
     // 作業者
-    var fromStr=(r.from&&r.from.length)?'<span style="font-size:12px;color:var(--muted)">🔧 '+esc(r.from.join('・'))+'</span>':'';
+    var fromStr=(r.from&&r.from.length)?'<span style="font-size:12px;color:var(--muted)">作業者: <span style="color:#222">'+esc(r.from.join('・'))+'</span></span>':'';
     // 添付
     var attStr='';
     if(r.imgs&&r.imgs.length) attStr+='<span style="font-size:11px;color:var(--muted)">🖼 '+r.imgs.length+'枚</span>';
@@ -520,7 +520,7 @@ function renderList(){
       +'<div class="rc-bar" style="background:'+priColor(r.priority)+'"></div>'
       +'<div class="rc-body" onclick="showDetail('+r.id+')">'
       +'<div class="rc-title">'+esc(r.title)+(r.hidden?'&nbsp;<span class="bdg" style="background:#f5f0e8;color:var(--muted);border:1px solid var(--bd);font-size:10px">非表示</span>':'')+'</div>'
-      +(r.raiyo?'<div style="font-size:12px;color:#444;margin:3px 0 5px;padding:4px 8px;background:var(--head);border-radius:6px;border-left:3px solid var(--acc)">'+esc(r.raiyo.length>60?r.raiyo.substring(0,60)+'…':r.raiyo)+'</div>':'')
+      +(r.raiyo?'<div style="font-size:12px;color:#555;margin:3px 0 5px;padding:3px 8px;background:var(--head);border-radius:6px;border:1px solid var(--bd)">'+esc(r.raiyo.length>60?r.raiyo.substring(0,60)+'…':r.raiyo)+'</div>':'')
       +'<div class="rc-meta" style="gap:8px">'+meta1+'</div>'
       +(meta2?'<div class="rc-meta" style="margin-top:3px;gap:8px">'+meta2+'</div>':'')
       +'</div>'
