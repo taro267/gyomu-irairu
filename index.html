@@ -467,13 +467,70 @@ function resetForm(){document.getElementById('form-label').textContent='新規�
 function submitForm(){var t=getBizVal();if(!t){toast('業務名を選択または入力してください');return;}var id=editId||(reqs.length?Math.max.apply(null,reqs.map(function(r){return r.id;}))+1:1);var obj={id:id,title:t,from:selFrom.slice(),to:document.getElementById('f-to').value,priority:document.getElementById('f-pri').value,due:document.getElementById('f-due').value,raiyo:document.getElementById('f-raiyo').value.trim(),noteMode:noteMode,noteText:document.getElementById('f-note').value.trim(),noteSteps:noteMode==='flow'?fSteps.filter(function(s){return s.text.trim();}).map(function(s){return {text:s.text,type:s.type};}): [],biko:document.getElementById('f-biko').value.trim(),imgs:fImgs.slice(),files:fFiles.slice(),links:fLinks.filter(function(l){return l.url||l.label;}).map(function(l){return {label:l.label,url:l.url};}),odfs:fOdfs.filter(function(o){return o.path;}).map(function(o){return {label:o.label,path:o.path};}),status:editId?(reqs.find(function(r){return r.id===editId;})||{}).status||'未対応':'未対応',hidden:editId?(reqs.find(function(r){return r.id===editId;})||{}).hidden||false:false,created:editId?(reqs.find(function(r){return r.id===editId;})||{}).created||now():now()};if(editId)reqs=reqs.map(function(r){return r.id===editId?obj:r;});else reqs.unshift(obj);editId=null;resetForm();showTab('list');saveData();}
 
 // ===== LIST =====
+function dueColor(due){
+  if(!due) return 'color:var(--muted)';
+  var today=new Date();today.setHours(0,0,0,0);
+  var d=new Date(due);d.setHours(0,0,0,0);
+  var diff=Math.floor((d-today)/(1000*60*60*24));
+  if(diff<0) return 'color:#C53030;font-weight:600';
+  if(diff<=3) return 'color:#B45309;font-weight:600';
+  return 'color:var(--grn)';
+}
+function dueLabel(due){
+  if(!due) return '';
+  var today=new Date();today.setHours(0,0,0,0);
+  var d=new Date(due);d.setHours(0,0,0,0);
+  var diff=Math.floor((d-today)/(1000*60*60*24));
+  if(diff<0) return '　超過 '+Math.abs(diff)+'日';
+  if(diff===0) return '　本日';
+  if(diff<=3) return '　あと'+diff+'日';
+  return '';
+}
 function sbadge(s){var m={未対応:'<span class="bdg bdg-new">未対応</span>',作業中:'<span class="bdg bdg-wip">作業中</span>',完了:'<span class="bdg bdg-done">完了</span>'};return m[s]||('<span class="bdg">'+esc(s)+'</span>');}
 function pbadge(p){var m={高:'<span class="bdg bdg-hi">高</span>',中:'<span class="bdg bdg-mid">中</span>',低:'<span class="bdg bdg-lo">低</span>'};return m[p]||esc(p);}
 function priColor(p){return {高:'#E53E3E',中:'#DD6B20',低:'#38A169'}[p]||'#ccc';}
 function toggleShowHidden(){showHidden=!showHidden;document.getElementById('btn-showhide').textContent=showHidden?'非表示を隠す':'非表示を表示';document.getElementById('btn-showhide').style.color=showHidden?'var(--acc)':'var(--muted)';renderList();}
 function cycleStatus(id){var r=reqs.find(function(x){return x.id===id;});if(r){var m={未対応:'作業中',作業中:'完了',完了:'未対応'};r.status=m[r.status]||'未対応';renderList();saveData();}}
 function toggleHide(id){var r=reqs.find(function(x){return x.id===id;});if(r){r.hidden=!r.hidden;renderList();saveData();}}
-function renderList(){var fs=document.getElementById('fl-status').value,fa=document.getElementById('fl-member').value,fp=document.getElementById('fl-pri').value;var d=reqs.filter(function(r){if(!showHidden&&r.hidden)return false;return(!fs||r.status===fs)&&(!fa||r.to===fa)&&(!fp||r.priority===fp);});var el=document.getElementById('list-body');if(!d.length){el.innerHTML='<div class="empty">指示がありません</div>';updStats();return;}var html='';for(var i=0;i<d.length;i++){var r=d[i];var meta=sbadge(r.status)+' '+pbadge(r.priority);if(r.to)meta+='<span style="font-size:12px;color:var(--muted)">担当: '+esc(r.to)+'</span>';if(r.due)meta+='<span style="font-size:12px;color:var(--muted)">期限: '+esc(r.due)+'</span>';if(r.from&&r.from.length)meta+='<span style="font-size:12px;color:var(--muted)">作業者: '+esc(r.from.join('・'))+'</span>';if(r.imgs&&r.imgs.length)meta+='<span style="font-size:11px;color:var(--muted)">🖼 '+r.imgs.length+'枚</span>';if(r.files&&r.files.length)meta+='<span style="font-size:11px;color:var(--muted)">📎 '+r.files.length+'件</span>';html+='<div class="rc'+(r.hidden?' faded':'')+'"><div class="rc-inner"><div class="rc-bar" style="background:'+priColor(r.priority)+'"></div><div class="rc-body" onclick="showDetail('+r.id+')"><div class="rc-title">'+esc(r.title)+(r.hidden?'&nbsp;<span class="bdg" style="background:#f5f0e8;color:var(--muted);border:1px solid var(--bd);font-size:10px">非表示</span>':'')+'</div>'+(r.raiyo?'<div style="font-size:12px;color:#444;margin-bottom:4px;padding:4px 8px;background:var(--head);border-radius:6px;border-left:3px solid var(--acc)">'+esc(r.raiyo.length>60?r.raiyo.substring(0,60)+'…':r.raiyo)+'</div>':'')+'<div class="rc-meta">'+meta+'</div></div><div class="rc-right"><button class="b-sm" onclick="cycleStatus('+r.id+')">状態更新</button><button class="b-muted" onclick="toggleHide('+r.id+')">'+(r.hidden?'表示に戻す':'非表示')+'</button></div></div></div>';}el.innerHTML=html;updStats();}
+function renderList(){
+  var fs=document.getElementById('fl-status').value,fa=document.getElementById('fl-member').value,fp=document.getElementById('fl-pri').value;
+  var d=reqs.filter(function(r){if(!showHidden&&r.hidden)return false;return(!fs||r.status===fs)&&(!fa||r.to===fa)&&(!fp||r.priority===fp);});
+  var el=document.getElementById('list-body');
+  if(!d.length){el.innerHTML='<div class="empty">指示がありません</div>';updStats();return;}
+  var html='';
+  for(var i=0;i<d.length;i++){
+    var r=d[i];
+    // ステータス行
+    var row1=sbadge(r.status)+' '+pbadge(r.priority);
+    // 期限
+    var dueStr='';
+    if(r.due) dueStr='<span style="font-size:12px;'+dueColor(r.due)+'">📅 '+esc(r.due)+esc(dueLabel(r.due))+'</span>';
+    // 担当者
+    var toStr=r.to?'<span style="font-size:12px;color:var(--muted)">👤 '+esc(r.to)+'</span>':'';
+    // 作業者
+    var fromStr=(r.from&&r.from.length)?'<span style="font-size:12px;color:var(--muted)">🔧 '+esc(r.from.join('・'))+'</span>':'';
+    // 添付
+    var attStr='';
+    if(r.imgs&&r.imgs.length) attStr+='<span style="font-size:11px;color:var(--muted)">🖼 '+r.imgs.length+'枚</span>';
+    if(r.files&&r.files.length) attStr+='<span style="font-size:11px;color:var(--muted)">📎 '+r.files.length+'件</span>';
+    var meta1=row1+(dueStr?' '+dueStr:'');
+    var meta2=[toStr,fromStr,attStr].filter(Boolean).join(' ');
+    html+='<div class="rc'+(r.hidden?' faded':'')+'">'
+      +'<div class="rc-inner">'
+      +'<div class="rc-bar" style="background:'+priColor(r.priority)+'"></div>'
+      +'<div class="rc-body" onclick="showDetail('+r.id+')">'
+      +'<div class="rc-title">'+esc(r.title)+(r.hidden?'&nbsp;<span class="bdg" style="background:#f5f0e8;color:var(--muted);border:1px solid var(--bd);font-size:10px">非表示</span>':'')+'</div>'
+      +(r.raiyo?'<div style="font-size:12px;color:#444;margin:3px 0 5px;padding:4px 8px;background:var(--head);border-radius:6px;border-left:3px solid var(--acc)">'+esc(r.raiyo.length>60?r.raiyo.substring(0,60)+'…':r.raiyo)+'</div>':'')
+      +'<div class="rc-meta" style="gap:8px">'+meta1+'</div>'
+      +(meta2?'<div class="rc-meta" style="margin-top:3px;gap:8px">'+meta2+'</div>':'')
+      +'</div>'
+      +'<div class="rc-right">'
+      +'<button class="b-sm" onclick="cycleStatus('+r.id+')">状態更新</button>'
+      +'<button class="b-muted" onclick="toggleHide('+r.id+')">'+(r.hidden?'表示に戻す':'非表示')+'</button>'
+      +'</div></div></div>';
+  }
+  el.innerHTML=html;updStats();
+}
 function updStats(){document.getElementById('cnt-all').textContent=reqs.length;document.getElementById('cnt-new').textContent=reqs.filter(function(r){return !r.hidden&&r.status==='未対応';}).length;document.getElementById('cnt-wip').textContent=reqs.filter(function(r){return !r.hidden&&r.status==='作業中';}).length;document.getElementById('cnt-done').textContent=reqs.filter(function(r){return !r.hidden&&r.status==='完了';}).length;document.getElementById('cnt-hide').textContent=reqs.filter(function(r){return r.hidden;}).length;}
 
 // ===== DETAIL =====
