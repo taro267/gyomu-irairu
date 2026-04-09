@@ -120,6 +120,7 @@ button:hover{background:var(--head)}
 
 <nav>
   <button class="ntab on" id="tab-btn-list" onclick="showTab('list')">指示一覧</button>
+  <button class="ntab" id="tab-btn-biz" onclick="showTab('biz')">業務別</button>
   <button class="ntab" id="tab-btn-new" onclick="showTab('new')">新規指示</button>
   <button class="ntab" id="tab-btn-settings" onclick="showTab('settings')">設定</button>
 </nav>
@@ -185,7 +186,32 @@ button:hover{background:var(--head)}
   </div>
 </div>
 
-<!-- 新規指示 -->
+<!-- 業務別 -->
+<div id="tab-biz" style="display:none">
+  <div id="biz-pane-list">
+    <div style="margin-bottom:12px;font-size:13px;color:var(--muted)">業務名をクリックすると詳細が見られます</div>
+    <div id="biz-card-list"></div>
+  </div>
+  <div id="biz-pane-detail" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <button onclick="backToBizList()" style="font-size:13px">← 業務一覧に戻る</button>
+      <button class="b-acc" onclick="goNewFromBiz()">＋ この業務で新規指示</button>
+    </div>
+    <div class="sc">
+      <div class="sc-hd"><div class="bar" style="background:var(--acc)"></div><div class="ttl" id="biz-det-name"></div></div>
+      <div class="sc-bd">
+        <div id="biz-det-stats" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"></div>
+        <div style="margin-bottom:6px;font-size:12px;font-weight:500;color:var(--muted)">進捗</div>
+        <div style="background:var(--bd);border-radius:20px;height:10px;overflow:hidden;margin-bottom:16px">
+          <div id="biz-progress-bar" style="height:100%;background:var(--grn);border-radius:20px;transition:width .4s"></div>
+        </div>
+        <div id="biz-det-tasks"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <div id="tab-new" style="display:none">
   <div id="form-label" style="font-size:15px;font-weight:500;margin-bottom:13px">新規指示作成</div>
   <div class="sc">
@@ -403,7 +429,118 @@ function toFileUrl(p){return 'file:///'+p.replace(/\\/g,'/').replace(/ /g,'%20')
 function updateBasePrev(){var u=document.getElementById('s-user').value.trim(),b=document.getElementById('s-base').value.trim(),el=document.getElementById('base-prev'),v=b||(u?'C:\\Users\\'+u+'\\OneDrive':'');if(v){el.style.display='block';el.textContent=v;}else el.style.display='none';}
 function tipToggle(id){var el=document.getElementById(id);el.style.display=el.style.display==='block'?'none':'block';}
 
-// ===== BIZ =====
+// ===== BIZ VIEW =====
+var currentBizName = '';
+function renderBizCardList() {
+  // 業務名ごとにグルーピング
+  var bizMap = {};
+  for(var i=0;i<reqs.length;i++) {
+    var r=reqs[i];
+    var k=r.title||'（無題）';
+    if(!bizMap[k]) bizMap[k]={name:k,tasks:[]};
+    bizMap[k].tasks.push(r);
+  }
+  var keys=Object.keys(bizMap);
+  var el=document.getElementById('biz-card-list');
+  if(!keys.length){el.innerHTML='<div class="empty">指示がありません</div>';return;}
+  var html='';
+  for(var j=0;j<keys.length;j++){
+    var biz=bizMap[keys[j]];
+    var tasks=biz.tasks;
+    var total=tasks.length;
+    var done=tasks.filter(function(t){return t.status==='完了';}).length;
+    var wip=tasks.filter(function(t){return t.status==='作業中';}).length;
+    var nd=tasks.filter(function(t){return t.status==='未対応';}).length;
+    var pct=total?Math.round(done/total*100):0;
+    // 直近の期限
+    var dues=tasks.filter(function(t){return t.due;}).map(function(t){return t.due;}).sort();
+    var nearDue=dues.length?dues[0]:'';
+    html+='<div class="rc" onclick="showBizDetail(\''+esc(keys[j])+'\')" style="cursor:pointer">'
+      +'<div class="rc-inner">'
+      +'<div class="rc-bar" style="background:'+(pct===100?'var(--grn)':wip>0?'var(--amb)':'var(--acc)')+'"></div>'
+      +'<div class="rc-body">'
+      +'<div class="rc-title" style="margin-bottom:6px">'+esc(biz.name)+'</div>'
+      +'<div style="background:var(--bd);border-radius:20px;height:7px;overflow:hidden;margin-bottom:7px">'
+      +'<div style="height:100%;width:'+pct+'%;background:'+(pct===100?'var(--grn)':pct>0?'var(--amb)':'var(--bd)')+';border-radius:20px"></div></div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      +'<span style="font-size:12px;color:var(--muted)">全 <strong style="color:#222">'+total+'</strong> 件</span>'
+      +(nd?'<span class="bdg bdg-new">未対応 '+nd+'</span>':'')
+      +(wip?'<span class="bdg bdg-wip">作業中 '+wip+'</span>':'')
+      +(done?'<span class="bdg bdg-done">完了 '+done+'</span>':'')
+      +(nearDue?'<span style="font-size:12px;'+dueColor(nearDue)+'">📅 直近期限: '+esc(nearDue)+esc(dueLabel(nearDue))+'</span>':'')
+      +'</div></div>'
+      +'<div style="font-size:18px;font-weight:500;color:var(--muted);align-self:center;padding-left:8px">›</div>'
+      +'</div></div>';
+  }
+  el.innerHTML=html;
+}
+function showBizDetail(name) {
+  currentBizName=name;
+  var tasks=reqs.filter(function(r){return r.title===name;});
+  var total=tasks.length;
+  var done=tasks.filter(function(t){return t.status==='完了';}).length;
+  var wip=tasks.filter(function(t){return t.status==='作業中';}).length;
+  var nd=tasks.filter(function(t){return t.status==='未対応';}).length;
+  var pct=total?Math.round(done/total*100):0;
+  document.getElementById('biz-pane-list').style.display='none';
+  document.getElementById('biz-pane-detail').style.display='block';
+  document.getElementById('biz-det-name').textContent=name;
+  document.getElementById('biz-progress-bar').style.width=pct+'%';
+  document.getElementById('biz-det-stats').innerHTML=
+    '<span class="spill">全 <strong>'+total+'</strong> 件</span>'
+    +(nd?'<span class="spill">未対応 <strong style="color:var(--blue)">'+nd+'</strong></span>':'')
+    +(wip?'<span class="spill">作業中 <strong style="color:var(--amb)">'+wip+'</strong></span>':'')
+    +(done?'<span class="spill">完了 <strong style="color:var(--grn)">'+done+'</strong></span>':'')
+    +'<span class="spill">完了率 <strong style="color:'+(pct===100?'var(--grn)':pct>0?'var(--amb)':'var(--muted)')+'">'+pct+'%</strong></span>';
+  // タスク一覧
+  var html='';
+  // 未完了を上、完了を下
+  var active=tasks.filter(function(t){return t.status!=='完了';});
+  var comp=tasks.filter(function(t){return t.status==='完了';});
+  var ordered=active.concat(comp);
+  for(var i=0;i<ordered.length;i++){
+    var r=ordered[i];
+    html+='<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:'+(r.status==='完了'?'var(--head)':'var(--card)')+';border:1px solid var(--bd);border-radius:10px;margin-bottom:7px;cursor:pointer;opacity:'+(r.status==='完了'?'0.65':'1')+'" onclick="showDetailFromBiz('+r.id+')">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">'
+      +sbadge(r.status)+pbadge(r.priority)
+      +(r.due?'<span style="font-size:12px;'+dueColor(r.due)+'">📅 '+esc(r.due)+esc(dueLabel(r.due))+'</span>':'')
+      +'</div>'
+      +(r.raiyo?'<div style="font-size:12px;color:#555;padding:3px 7px;background:var(--inp);border-radius:6px;border:1px solid var(--bd);margin-bottom:3px">'+esc(r.raiyo.length>50?r.raiyo.substring(0,50)+'…':r.raiyo)+'</div>':'')
+      +(r.to?'<div style="font-size:12px;color:var(--muted)">担当: <span style="color:#222">'+esc(r.to)+'</span></div>':'')
+      +(r.from&&r.from.length?'<div style="font-size:12px;color:var(--muted)">作業者: <span style="color:#222">'+esc(r.from.join('・'))+'</span></div>':'')
+      +'</div>'
+      +'<div style="font-size:18px;color:var(--muted);align-self:center">›</div>'
+      +'</div>';
+  }
+  document.getElementById('biz-det-tasks').innerHTML=html||'<div class="empty">指示がありません</div>';
+}
+function showDetailFromBiz(id){
+  // 一旦listタブのdetailを使う
+  showTab('list');
+  showDetail(id);
+  // 戻るボタンを業務別に戻るよう上書き
+  setTimeout(function(){
+    document.querySelector('#pane-detail button').onclick=function(){
+      backToList();
+      showTab('biz');
+      document.getElementById('biz-pane-list').style.display='none';
+      document.getElementById('biz-pane-detail').style.display='block';
+      showBizDetail(currentBizName);
+    };
+  },50);
+}
+function backToBizList(){
+  document.getElementById('biz-pane-detail').style.display='none';
+  document.getElementById('biz-pane-list').style.display='block';
+  renderBizCardList();
+}
+function goNewFromBiz(){
+  editId=null;resetForm();
+  // 業務名を自動セット
+  setBizVal(currentBizName);
+  showTab('new');
+}
 function addBiz(){var inp=document.getElementById('biz-input'),n=inp.value.trim();if(!n)return;if(!cfg.bizNames.find(function(b){return b.name===n;}))cfg.bizNames.push({name:n,active:true});inp.value='';renderBizTable();renderBizSelect();saveData();}
 function toggleBizActive(i){if(cfg.bizNames[i]){cfg.bizNames[i].active=!cfg.bizNames[i].active;renderBizTable();renderBizSelect();saveData();}}
 function startEditBiz(i){var row=document.getElementById('brow'+i);if(!row)return;var nameEl=row.querySelector('.bname'),editBtn=row.querySelector('.edit-btn');if(!nameEl||!editBtn)return;if(editBtn.textContent.trim()==='保存'){var inp=row.querySelector('input.bedit');if(inp&&inp.value.trim()){cfg.bizNames[i].name=inp.value.trim();saveData();renderBizSelect();}renderBizTable();return;}editBtn.textContent='保存';nameEl.innerHTML='<input class="bedit" type="text" value="'+esc(cfg.bizNames[i].name)+'" style="flex:1;padding:3px 7px;font-size:13px;border:1px solid var(--acc);border-radius:6px;background:var(--card);color:#222">';var inp2=nameEl.querySelector('input');if(inp2){inp2.focus();inp2.select();}}
@@ -548,7 +685,16 @@ function copyMail(){navigator.clipboard.writeText(mailBodyText).then(function(){
 function copyMailAll(){var s=document.getElementById('mail-subj').textContent;navigator.clipboard.writeText('件名: '+s+'\n\n'+mailBodyText).then(function(){toast('件名＋本文をコピーしました');});}
 
 // ===== TABS =====
-function showTab(t){['list','new','settings'].forEach(function(id){document.getElementById('tab-'+id).style.display=id===t?'block':'none';document.getElementById('tab-btn-'+id).className='ntab'+(id===t?' on':'');});if(t==='list'){document.getElementById('pane-detail').style.display='none';document.getElementById('pane-list').style.display='block';renderList();}if(t==='new'&&!editId)resetForm();}
+function showTab(t){
+  ['list','biz','new','settings'].forEach(function(id){
+    document.getElementById('tab-'+id).style.display=id===t?'block':'none';
+    var btn=document.getElementById('tab-btn-'+id);
+    if(btn) btn.className='ntab'+(id===t?' on':'');
+  });
+  if(t==='list'){document.getElementById('pane-detail').style.display='none';document.getElementById('pane-list').style.display='block';renderList();}
+  if(t==='biz'){document.getElementById('biz-pane-detail').style.display='none';document.getElementById('biz-pane-list').style.display='block';renderBizCardList();}
+  if(t==='new'&&!editId)resetForm();
+}
 
 // ===== INIT =====
 loadLocalPath();
